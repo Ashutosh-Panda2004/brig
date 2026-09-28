@@ -769,10 +769,22 @@ func shellArgv(command []string) []string {
 
 // isScriptFlag reports whether a first word is sh's -c, alone or with the
 // flags that go in front of it: e to stop at the first failure, u for unset
-// variables, x to trace, l for a login shell, which it already is.
+// variables, x to trace, l for a login shell, which it already is. Each flag
+// counts once, so a command that happens to be spelled from those letters,
+// -exec or -xxc, stays a command name rather than running its words as a
+// traced script.
 func isScriptFlag(word string) bool {
-	return len(word) >= 2 && word[0] == '-' && word[len(word)-1] == 'c' &&
-		strings.Trim(word[1:len(word)-1], "eulx") == ""
+	if len(word) < 2 || word[0] != '-' || word[len(word)-1] != 'c' {
+		return false
+	}
+	seen := ""
+	for _, r := range word[1 : len(word)-1] {
+		if !strings.ContainsRune("eulx", r) || strings.ContainsRune(seen, r) {
+			return false
+		}
+		seen += string(r)
+	}
+	return true
 }
 
 // ShellCommandError refuses a script flag with no script after it, or with one

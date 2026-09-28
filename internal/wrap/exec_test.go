@@ -231,6 +231,21 @@ func TestShellScriptFlagCombined(t *testing.T) {
 	if got := runShellArgv(t, "-zc", "echo x"); got != 127 {
 		t.Errorf("-zc exited %d, want 127 for a command not found", got)
 	}
+	// Each flag counts once. A word that repeats one, like -exec, is a
+	// command name, not `set -exe` in front of the words after it.
+	for _, word := range []string{"-exec", "-xxc", "-eec"} {
+		if isScriptFlag(word) {
+			t.Errorf("isScriptFlag(%q) = true, want a command name", word)
+		}
+		if got := runShellArgv(t, word, "echo x"); got != 127 {
+			t.Errorf("%s exited %d, want 127 for a command not found", word, got)
+		}
+	}
+	for _, word := range []string{"-c", "-ec", "-euxc", "-xuec", "-lc", "-elc"} {
+		if !isScriptFlag(word) {
+			t.Errorf("isScriptFlag(%q) = false, want a script flag", word)
+		}
+	}
 }
 
 // A script flag with no script, or an empty one, is refused rather than handed
