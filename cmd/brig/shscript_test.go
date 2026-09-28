@@ -57,6 +57,24 @@ func TestShScriptFlagNeedsAScript(t *testing.T) {
 			t.Errorf("brig %s was accepted: %v", strings.Join(args, " "), err)
 		}
 	}
+	// An agent profile has a -c of its own, so the refusal is for the shell
+	// only: brig run claude -c goes on to claude with its -c intact.
+	for _, args := range [][]string{
+		{"run", "claude", "-c"},
+		{"run", "claude", "--", "-c"},
+	} {
+		scratchHost(t)
+		var err error
+		stderr := captureStderr(t, func() {
+			_, err = captureStdout(t, func() error { return run(args) })
+		})
+		if !took(err) {
+			t.Errorf("brig %s was refused: %v", strings.Join(args, " "), err)
+		}
+		if strings.Contains(stderr, "needs a script") || strings.Contains(stderr, "put -c in front of it") {
+			t.Errorf("brig %s printed %q", strings.Join(args, " "), stderr)
+		}
+	}
 }
 
 // -c is not one of brig's flags, so it reaches the guest command as its first
