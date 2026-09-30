@@ -38,7 +38,7 @@ func containerdRuntime() string {
 	if v := os.Getenv("BRIG_CONTAINERD_RUNTIME"); v != "" {
 		return v
 	}
-	return "io.containerd.urunc.v2"
+	return uruncShim
 }
 
 // refuseSharedKernel stops a boot whose containerd shim brig knows gives the
