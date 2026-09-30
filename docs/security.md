@@ -82,6 +82,7 @@ prints it before the boot:
 ISOLATION    microVM (hull, hvi backend)
 ISOLATION    microVM (hull, vz backend)
 ISOLATION    microVM (nerdctl over containerd, io.containerd.urunc.v2)
+ISOLATION    container (nerdctl over containerd, runc: the guest shares the host kernel)
 ISOLATION    unknown (nerdctl over containerd, io.containerd.kata.v2: brig cannot tell whether that shim boots a kernel of its own)
 ```
 
