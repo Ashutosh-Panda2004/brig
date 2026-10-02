@@ -2104,26 +2104,30 @@ func removeSandbox(cfg *wrap.Config, ref string, dryRun bool) error {
 		return err
 	}
 	if !present {
-		// Not pruned here. Nothing was removed, so nothing about the index has
-		// been settled: the entry goes when a removal actually happens, in
-		// Remove, or when ls prunes against a listing of what the runtime
-		// really holds. Dropping it on the strength of one absence would put
-		// this path in the business of deciding a sandbox is gone, which is a
-		// judgement the verb that removes it is better placed to make. A stale
-		// entry for a sandbox that is truly gone costs nothing until then.
-		//
-		// Published ports are the exception. `brig network publish` records a
-		// port for a sandbox that has never booted, and the next run would
-		// open it, so rm drops the record whatever the runtime holds.
+		// Published ports go whatever the index holds. `brig network publish`
+		// records a port for a sandbox that has never booted, and the next run
+		// would open it.
 		if ports, err := runtime.Publications(cfg.VMName); err == nil && len(ports) > 0 && !dryRun {
 			runtime.ForgetPublications(cfg.VMName)
 			warnf("dropped the ports recorded for %s", ref)
 		}
-		// A network is recorded only at a boot, so a record for a sandbox the
-		// runtime does not have was left by a removal brig did not make. The
-		// next sandbox to take the name must not inherit it.
-		if !dryRun {
-			runtime.ForgetBootedNet(cfg.VMName)
+		// A session whose sandbox went away outside brig is forgotten here,
+		// with its slug claim and network record, once the runtime confirms
+		// the sandbox does not exist, stopped or running. The listing above
+		// is not enough: hull without ps -a lists only running sandboxes.
+		// Forgetting only part of a session is worse than either: an entry
+		// with no network record makes the next flagless run ask the runtime,
+		// and hull cannot tell a removed VM from an unreadable one, so that
+		// run is refused. A home brig created is deleted by the next run,
+		// which finds no session owning it.
+		if ex, ok := cfg.Runtime.(runtime.Exister); ok && !dryRun {
+			if exists, err := ex.Exists(cfg.VMName); err == nil && !exists {
+				runtime.ForgetBootedNet(cfg.VMName)
+				wrap.ForgetSlugClaim(cfg.VMName)
+				if wrap.ForgetSandbox(cfg.VMName) {
+					return notFoundf("no sandbox for %s; it was already gone, so brig forgot its session", ref)
+				}
+			}
 		}
 		return noSandboxf(ref)
 	}

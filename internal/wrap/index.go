@@ -358,8 +358,8 @@ func RefOfSandbox(vmName string) string {
 //
 // Errors are dropped rather than returned, the way releaseGatewayIP drops its
 // own: a removal that worked must not report a failure because a bookkeeping
-// file could not be rewritten.
-func ForgetSandbox(vmName string) {
+// file could not be rewritten. It reports whether any entry named vmName.
+func ForgetSandbox(vmName string) bool {
 	index := readSessionIndex()
 	dropped := false
 	for key, entry := range index {
@@ -369,9 +369,10 @@ func ForgetSandbox(vmName string) {
 		}
 	}
 	if !dropped {
-		return
+		return false
 	}
 	_ = writeSessionIndex(index)
+	return true
 }
 
 // PruneSessions drops every entry whose sandbox is not in the list of what the

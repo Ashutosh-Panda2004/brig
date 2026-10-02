@@ -109,7 +109,7 @@ func TestRemoveSandboxPropagatesAListError(t *testing.T) {
 // hull.List falls back to a plain ps on a hull without ps -a, and that listing
 // carries only the running instances, so a stopped sandbox reads as absent
 // while it is still in hull's store. Its index entry stays until a removal
-// actually happens, or until ls prunes against a full listing.
+// actually happens, the runtime confirms the sandbox is gone, or ls prunes.
 func TestRemoveSandboxKeepsTheIndexOnMissing(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("BRIG_STATE_DIR", dir)
@@ -129,6 +129,69 @@ func TestRemoveSandboxKeepsTheIndexOnMissing(t *testing.T) {
 	}
 	if !strings.Contains(string(blob), "brig-claude-code") {
 		t.Errorf("the index entry was pruned on a listing that may not have been complete: %s", blob)
+	}
+}
+
+// existsRuntime is a listRuntime that can also say whether a sandbox exists
+// when the listing leaves stopped ones out.
+type existsRuntime struct {
+	*listRuntime
+	exists bool
+}
+
+func (r *existsRuntime) Exists(string) (bool, error) { return r.exists, nil }
+
+// A sandbox removed outside brig leaves a session behind. Once the runtime
+// confirms it is gone, rm forgets the session and its network record, so the
+// next run starts a new one. A sandbox the listing missed but the runtime
+// still has keeps both.
+func TestRemoveSandboxForgetsTheSessionOfAConfirmedAbsence(t *testing.T) {
+	for _, tt := range []struct {
+		name       string
+		exists     bool
+		wantForget bool
+	}{
+		{"confirmed absent", false, true},
+		{"stopped and missed by the listing", true, false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			t.Setenv("BRIG_STATE_DIR", dir)
+			t.Setenv("BRIG_GATEWAY_DIR", t.TempDir())
+			sessions := filepath.Join(dir, "sessions.json")
+			if err := os.WriteFile(sessions,
+				[]byte(`{"claude@refactor":{"home":"/ws","sandbox":"brig-claude-code"}}`), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := runtime.RecordBootedNet("brig-claude-code", "none"); err != nil {
+				t.Fatal(err)
+			}
+			rt := &existsRuntime{listRuntime: absent(), exists: tt.exists}
+			err := removeSandbox(&wrap.Config{VMName: "brig-claude-code", Runtime: rt}, "claude@refactor", false)
+			if exitCode(err) != exitNotFound {
+				t.Fatalf("rm of a sandbox not in the listing exits %d, want %d: %v", exitCode(err), exitNotFound, err)
+			}
+			if forgot := strings.Contains(err.Error(), "forgot its session"); forgot != tt.wantForget {
+				t.Errorf("rm said it forgot the session: %v, want %v: %v", forgot, tt.wantForget, err)
+			}
+			blob, readErr := os.ReadFile(sessions)
+			if readErr != nil {
+				t.Fatal(readErr)
+			}
+			if kept := strings.Contains(string(blob), "brig-claude-code"); kept == tt.wantForget {
+				t.Errorf("index entry kept: %v, want %v: %s", kept, !tt.wantForget, blob)
+			}
+			word, recErr := runtime.BootedNet("brig-claude-code")
+			if recErr != nil {
+				t.Fatal(recErr)
+			}
+			if kept := word != ""; kept == tt.wantForget {
+				t.Errorf("network record kept: %v, want %v", kept, !tt.wantForget)
+			}
+			if rt.removed {
+				t.Error("rm reached the runtime's Remove for a sandbox not in the listing")
+			}
+		})
 	}
 }
 

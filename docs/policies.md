@@ -108,7 +108,8 @@ posture the sandbox no longer has, and `brig info` reports the recorded
 one. There is one exception: on `hvi`, when the record says `shared` and
 the sandbox is behind an isolated gateway, `brig info` names `isolated`.
 `brig stop` and a `brig run` from this release boot it again and write a
-new record. `brig rm` drops the record with the sandbox.
+new record. `brig rm` drops the record with the sandbox, and with the
+session when the sandbox was already removed outside Brig.
 
 | posture | what it permits |
 | --- | --- |
