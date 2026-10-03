@@ -180,8 +180,8 @@ type FileBinding struct {
 	// Path is relative to GuestHome, for example, ".claude/.credentials.json".
 	Path string `json:"path"`
 	// Mode is the octal permission the file is created with, for example, "0600".
-	// A string rather than a number because YAML reads 0600 as decimal 600,
-	// which is 0o1130 -- a mode nobody meant and that nothing would report.
+	// A string rather than a number because a bare YAML 0600 is read as a
+	// number and reaches here as "384", not "0600" -- a mode nobody meant.
 	Mode string `json:"mode,omitempty"`
 }
 

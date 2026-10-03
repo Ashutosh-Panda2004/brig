@@ -600,8 +600,9 @@ func withDigest(image, digest string) string {
 }
 
 // telemetryEnv attributes events to brig and suppresses the wrapper's own
-// plumbing -- reachability probes, ps lookups, cleanup -- so one brig command
-// counts once. Only the operations a user asked for are counted. DO_NOT_TRACK
+// plumbing -- reachability probes, ps lookups, cleanup -- so a brig command
+// never counts once per internal step. Only the operations a user asked for
+// are counted: a run that boots counts the boot and the handover. DO_NOT_TRACK
 // and the runtime's own opt-out pass through untouched and always win.
 //
 // Being an operation the user asked for is necessary but not sufficient: an
